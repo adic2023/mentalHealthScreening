@@ -287,7 +287,9 @@ sdq-chat-app/
 
 **Handled By**: **Ansh**
 
-###Flow Logic
-![Untitled diagram _ Mermaid Chart-2025-07-07-062204](https://github.com/user-attachments/assets/41042c01-3774-45f9-ad7c-313a51f70043)
 
+# Flow Logic
+
+
+![Untitled diagram _ Mermaid Chart-2025-07-07-062204](https://github.com/user-attachments/assets/41042c01-3774-45f9-ad7c-313a51f70043)
 

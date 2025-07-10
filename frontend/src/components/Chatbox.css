@@ -9,54 +9,59 @@
   overflow: hidden;
   font-family: sans-serif;
   background-color: #f3f4f6;
-  position: relative;
 }
 
-/* Make this grow to fill space above the form */
 .chatbox-messages {
   flex: 1;
   overflow-y: auto;
+  background-color: #ffffff;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  padding: 1rem;
-  background-color: #ffffff;
 }
 
-/* One message block */
 .chat-message {
-  max-width: 80%;
+  max-width: 75%;
   padding: 0.75rem;
   margin-bottom: 1rem;
   border-radius: 0.75rem;
   word-wrap: break-word;
-  display: inline-block;
-}
-
-/* Role styling */
-.chat-message.user {
-  align-self: flex-end;
-  background-color: #dbeafe;
-  text-align: right;
-}
-
-.chat-message.assistant {
-  background-color: #dcfce7;
-  align-self: flex-start;
-}
-
-.chat-message.system {
-  background-color: #fef9c3;
-  align-self: flex-start;
+  font-size: 0.9rem;
 }
 
 .chat-role {
-  font-size: 0.75rem;
-  color: #555;
+  font-size: 0.7rem;
+  font-weight: 600;
   margin-bottom: 0.25rem;
+  color: #444;
+  text-transform: capitalize;
 }
 
-/* Input fixed at bottom inside the container */
+/* System messages - neutral */
+.chat-message.system {
+  align-self: flex-start;
+  background-color: #f3f4f6;
+  color: #000;
+  border-left: 4px solid #eab308;
+}
+
+/* Assistant reply - green */
+.chat-message.assistant {
+  align-self: flex-start;
+  background-color: #dcfce7;
+  color: #065f46;
+  border-left: 4px solid #16a34a;
+}
+
+/* User input - blue, aligned right */
+.chat-message.user {
+  align-self: flex-end;
+  background-color: #dbeafe;
+  color: #1e3a8a;
+  border-left: 4px solid #2563eb;
+  text-align: left;
+}
+
 .chatbox-form {
   display: flex;
   padding: 0.75rem;
@@ -70,6 +75,7 @@
   padding: 0.75rem;
   border: 1px solid #ccc;
   border-radius: 0.5rem;
+  font-size: 0.9rem;
 }
 
 .chatbox-submit {

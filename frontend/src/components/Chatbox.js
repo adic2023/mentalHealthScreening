@@ -1,120 +1,169 @@
-// import React, { useState } from 'react';
-// import './Chatbox.css'; 
-
-// function Chatbox() {
-//   const [formData, setFormData] = useState({ response: '' });
-//   const [chatLog, setChatLog] = useState([]); // stores messages
-
-//   const handleChange = (e) => {
-//     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-//   };
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-
-//     const res = await fetch('http://localhost:8000/submit', {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify(formData),
-//     });
-
-//     const data = await res.json();
-
-//     const newMessages = [
-//       { role: 'user', content: formData.response },
-//       { role: 'llm', content: data.llm_reply },
-//       { role: 'preset', content: data.preset_reply }
-//     ];
-
-//     setChatLog(prev => [...prev, ...newMessages]);
-//     setFormData({ response: '' });
-//   };
-
-//   return (
-//     <div className="chatbox-container">
-//       <div className="chatbox-history">
-//         {chatLog.map((entry, index) => (
-//           <div key={index} className={`chat-message ${entry.role}`}>
-//             <strong>{entry.role === 'user' ? 'You' : entry.role === 'llm' ? 'LLM' : 'System'}:</strong> {entry.content}
-//           </div>
-//         ))}
-//       </div>
-
-//       <form onSubmit={handleSubmit} className="chatbox-form">
-//         <input
-//           name="response"
-//           placeholder="Type your response..."
-//           value={formData.response}
-//           onChange={handleChange}
-//         /><br />
-//         <button type="submit">Submit</button>
-//       </form>
-//     </div>
-//   );
-// }
-
-// export default Chatbox;
-
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import './Chatbox.css';
 
 function Chatbox() {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const endRef = useRef(null);
+  const [messages, setMessages] = useState([
+    { role: 'system', content: 'Welcome to the screening test. Please enter the child’s age to begin.' }
+  ]);
 
+  const [age, setAge] = useState('');
+  const [input, setInput] = useState('');
+  const [testId, setTestId] = useState(null);
+  const [questionIndex, setQuestionIndex] = useState(-1);
+  const [suggestedOption, setSuggestedOption] = useState(null);
+
+  // Step 1: Start the screening by sending age
+  const startTest = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/chat/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ age: parseInt(age) }),
+      });
+
+      const data = await res.json();
+      setTestId(data.test_id);
+      setQuestionIndex(data.question_index);
+
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: data.message }
+      ]);
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'system', content: 'Failed to start test. Try again.' }
+      ]);
+    }
+  };
+
+  // Step 2: Send user's freeform response to current question
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
+    const userMsg = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMsg]);
 
-    const res = await fetch('http://localhost:8000/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ response: input }),
-    });
+    try {
+      const res = await fetch('http://localhost:8000/chat/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          age: parseInt(age),
+          question_index: questionIndex,
+          chat_history: [...messages, userMsg],
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    const botReply = { role: 'assistant', content: data.llm_reply };
-    const presetReply = { role: 'system', content: data.preset_reply };
-
-    setMessages(prev => [...prev, botReply, presetReply]);
-    setInput('');
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: data.message }
+      ]);
+      setSuggestedOption(data.suggested_option);
+      setInput('');
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'system', content: 'Error during response. Try again.' }
+      ]);
+    }
   };
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Step 3: User confirms suggested option
+  const confirmOption = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/chat/confirm-option', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_id: testId,
+          age: parseInt(age),
+          question_index: questionIndex,
+          selected_option: suggestedOption,
+        }),
+      });
 
-return (
-  <div className="chatbox-container">
-    <div className="chatbox-messages">
-      {messages.map((msg, i) => (
-        <div
-          key={i}
-          className={`chat-message ${msg.role}`}
+      const data = await res.json();
+
+      setMessages(prev => [
+        ...prev,
+        { role: 'system', content: `Confirmed: "${suggestedOption}"` },
+        { role: 'assistant', content: data.message }
+      ]);
+      setSuggestedOption(null);
+      setQuestionIndex(data.question_index);
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'system', content: 'Error confirming option. Try again.' }
+      ]);
+    }
+  };
+
+  return (
+    <div className="chatbox-container">
+      <div className="chatbox-messages">
+        {messages.map((msg, i) => (
+          <div key={i} className={`chat-message ${msg.role}`}>
+            <div className="chat-role">{msg.role}</div>
+            <div className="chat-content">{msg.content}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* AGE FORM — only shown before test starts */}
+      {!testId && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            startTest();
+          }}
+          className="chatbox-form"
         >
-          <div className="chat-role">{msg.role}</div>
-          <div className="chat-content">{msg.content}</div>
-        </div>
-      ))}
-      <div ref={endRef} />
-    </div>
+          <input
+            className="chatbox-input"
+            type="number"
+            placeholder="Enter child's age..."
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+          />
+          <button className="chatbox-submit" type="submit">Start</button>
+        </form>
+      )}
 
-    <form onSubmit={handleSubmit} className="chatbox-form">
-      <input
-        className="chatbox-input"
-        placeholder="Type your message..."
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-      />
-      <button type="submit" className="chatbox-submit">Send</button>
-    </form>
-  </div>
-);
+      {/* CONFIRMATION UI — shown after LLM suggests an answer */}
+      {testId && suggestedOption && (
+        <div className="chatbox-form">
+          <p className="chatbox-input" style={{ background: '#fff9c4', flex: 1 }}>
+            LLM suggests: "<strong>{suggestedOption}</strong>". Confirm?
+          </p>
+          <button className="chatbox-submit" onClick={confirmOption}>Yes</button>
+          <button
+            className="chatbox-submit"
+            onClick={() => setSuggestedOption(null)}
+            style={{ backgroundColor: '#f87171' }}
+          >
+            No
+          </button>
+        </div>
+      )}
+
+      {/* MAIN TEXT INPUT — only shown after test starts */}
+      {testId && !suggestedOption && (
+        <form onSubmit={handleSubmit} className="chatbox-form">
+          <input
+            className="chatbox-input"
+            placeholder="Type your response..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
+          <button className="chatbox-submit" type="submit">Send</button>
+        </form>
+      )}
+    </div>
+  );
 }
 
 export default Chatbox;

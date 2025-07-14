@@ -145,3 +145,6 @@ def get_questions_for_age(age: int) -> List[str]:
         return QUESTIONS_11_TO_17
     else:
         raise ValueError("Unsupported age group")
+    
+def personalize_question(question: str, name: str) -> str:
+    return f"How often is {name} {question.lower()}? Options: ['Not True', 'Somewhat True', 'Certainly True']"

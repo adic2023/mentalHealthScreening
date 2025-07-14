@@ -15,7 +15,11 @@ def create_test_entry(test_id, age, child_name):
         "created_at": datetime.utcnow()
     })
 
-def store_response(test_id, question_index, question, selected_option, llm_summary=None):
+def store_response(test_id, question_index, question, selected_option):
+    # If LLM returned option with extra clarification, strip it
+    if "'" in selected_option:
+        selected_option = selected_option.split("'")[1]  # Extract clean: 'Somewhat True' → Somewhat True
+
     collection.update_one(
         {"test_id": test_id},
         {
@@ -23,8 +27,21 @@ def store_response(test_id, question_index, question, selected_option, llm_summa
                 "responses": {
                     "question_index": question_index,
                     "question": question,
-                    "selected_option": selected_option,
-                    "llm_summary": llm_summary
+                    "selected_option": selected_option
+                }
+            }
+        }
+    )
+    
+def store_vector_response(test_id, question_index, vector, text):
+    collection.update_one(
+        {"test_id": test_id},
+        {
+            "$push": {
+                "vector_responses": {
+                    "question_index": question_index,
+                    "text": text,
+                    "embedding": vector
                 }
             }
         }

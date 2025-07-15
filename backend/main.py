@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api import chat
+from backend_api import chat
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

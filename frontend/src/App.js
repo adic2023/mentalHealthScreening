@@ -1,13 +1,16 @@
+// App.js
 import './App.css';
-import Chatbox from './components/Chatbox'
+import Test from './pages/Test.js';
+import Home from './pages/Home.js'
+import {Routes, Route} from "react-router-dom"
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <h2>Screening Exam</h2>
-        <Chatbox/>
-      </header>
+       <Routes> 
+          <Route path="/" element={<Home/>}/>
+          <Route path="/ScreeningTest" element={<Test />}/>
+        </Routes>
     </div>
   );
 }

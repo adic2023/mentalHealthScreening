@@ -13,6 +13,8 @@ router = APIRouter()
 class StartRequest(BaseModel):
     age: int
     child_name: str
+    child_id: str  # Now passed from /child/login or /child/register
+    respondent_type: str  # "child" / "parent" / "teacher"
 
 class RespondRequest(BaseModel):
     age: int
@@ -28,15 +30,16 @@ class ConfirmOptionRequest(BaseModel):
     question_index: int
     selected_option: str
 
+
 @router.post("/start")
 def start_test(req: StartRequest):
     try:
         test_id = str(uuid.uuid4())
-        create_test_entry(test_id, req.age, req.child_name)
+        create_test_entry(test_id, req.age, req.child_name, req.child_id, req.respondent_type)
 
         return {
             "test_id": test_id,
-            "message": "Hello! I'm here to guide you through a short behavioral questionnaire for your child. Shall we begin? Type 'yes' to start.",
+            "message": "Hello! I'm here to guide you through a short behavioral questionnaire. Shall we begin? Type 'yes' to start.",
             "question_index": -1,
             "child_name": req.child_name
         }

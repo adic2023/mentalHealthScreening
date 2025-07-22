@@ -106,7 +106,8 @@ def build_prompt(age: int, question_index: int, chat_history: List[Dict], child_
     system_instruction = (
         "You are a mental health assistant helping assess a child using the SDQ test. "
         f"The child is {age} years old. Ask one question at a time and listen to the user's input carefully. "
-        "Then politely interpret their input into one of these three categories: 'Not True', 'Somewhat True', 'Certainly True'."
+        "If it seems like the user is answering the question, Then politely interpret their input into one of these three categories: 'Not True', 'Somewhat True', 'Certainly True'."
+        "Otherwise, respond as you would to a normal user, answering any questions about the test and responding to concerns."
     )
 
     formatted_history = "\n".join([
@@ -128,7 +129,8 @@ def build_prompt(age: int, question_index: int, chat_history: List[Dict], child_
             f"{formatted_history}\n\n"
             f"Based on the user's input, select the most appropriate option:\n"
             f"Choices: ['Not True', 'Somewhat True', 'Certainly True'].\n"
-            f"Reply ONLY with the best matching option and a short clarification like 'So you mean...?'"
+            f"Reply with with the best matching option and a short clarification like 'So you mean...?'"
+            f"again, if it does not seem like they are responding, or if they have a question, resmond to it normally"
         )
 
     # Normal question flow

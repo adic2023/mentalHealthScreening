@@ -1,8 +1,8 @@
 from fastapi import FastAPI
-from api import chat
+from backend_api import chat
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from backend_api import review
 app = FastAPI()
 
 origins = [
@@ -18,3 +18,4 @@ app.add_middleware(
 )
 
 app.include_router(chat.router, prefix="/chat")
+app.include_router(review.router)

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './Chatbox.css';
 
 function Chatbox() {
@@ -10,6 +10,12 @@ function Chatbox() {
   const [questionIndex, setQuestionIndex] = useState(null);
   const [suggestedOption, setSuggestedOption] = useState(null);
   const [started, setStarted] = useState(false);
+
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleUserInput = async (e) => {
     e.preventDefault();
@@ -53,24 +59,46 @@ function Chatbox() {
 
   return (
     <div className="chatbox-container">
+      <h1>Strengths and Difficulties Questionnaire</h1>
       <div className="chatbox-messages">
         {messages.map((msg, i) => (
           <div key={i} className={`chat-message ${msg.role}`}>
-            <div className="chat-role">{msg.role}</div>
+            <div className="chat-role">
+              <strong>{msg.role === 'assistant' ? '🤖 Assistant' : '🧍 User'}</strong>
+            </div>
             <div className="chat-content">{msg.content}</div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       {!started ? (
         <form onSubmit={startTest} className="chatbox-form">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Enter child name" className="chatbox-input" required />
-          <input type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="Enter age" className="chatbox-input" required />
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Enter child name"
+            className="chatbox-input"
+            required
+          />
+          <input
+            type="number"
+            value={age}
+            onChange={e => setAge(e.target.value)}
+            placeholder="Enter age"
+            className="chatbox-input"
+            required
+          />
           <button className="chatbox-submit" type="submit">Begin Test</button>
         </form>
       ) : (
         <form onSubmit={handleUserInput} className="chatbox-form">
-          <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type your reply..." className="chatbox-input" />
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Type your reply..."
+            className="chatbox-input"
+          />
           <button className="chatbox-submit" type="submit">Send</button>
         </form>
       )}

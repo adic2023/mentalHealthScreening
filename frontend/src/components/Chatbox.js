@@ -10,7 +10,7 @@ function Chatbox() {
   const [questionIndex, setQuestionIndex] = useState(null);
   const [suggestedOption, setSuggestedOption] = useState(null);
   const [started, setStarted] = useState(false);
-
+  const [childId, setChildId] = useState("temp-child-id");
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -48,14 +48,21 @@ function Chatbox() {
     const res = await fetch('http://localhost:8000/chat/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ age: parseInt(age), child_name: name })
+      body: JSON.stringify({
+        age: parseInt(age),
+        child_name: name,
+        child_id: "temp-child-id",              // 🔧 temporary static ID
+        respondent_type: "child"                // 🔧 until login/register is implemented
+      })
     });
+    
+    // Handle the response
     const data = await res.json();
-    setStarted(true);
+    setMessages([{ role: 'assistant', content: data.message }]);
     setTestId(data.test_id);
     setQuestionIndex(data.question_index);
-    setMessages([{ role: 'assistant', content: data.message }]);
-  };
+    setStarted(true);
+  }; // ← This closing brace was missing!
 
   return (
     <div className="chatbox-container">

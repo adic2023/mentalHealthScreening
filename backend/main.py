@@ -1,8 +1,7 @@
 from fastapi import FastAPI
-from backend_api import chat
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend_api import review
+from backend_api import chat, review, auth, test, child  # ← Added test and child imports
+
 app = FastAPI()
 
 origins = [
@@ -19,3 +18,6 @@ app.add_middleware(
 
 app.include_router(chat.router, prefix="/chat")
 app.include_router(review.router)
+app.include_router(auth.router, prefix="")
+app.include_router(test.router, prefix="")  # ← Added test router registration
+app.include_router(child.router, prefix="")  # ← Added child router registration

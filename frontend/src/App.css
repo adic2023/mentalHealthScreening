@@ -1,12 +1,12 @@
 /* App.css */
 
-html, body, #root {
+html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: #1f2937; /* Dark gray */
-  font-family: Arial, sans-serif;
+  background-color: #f9fafb; /* light background extends full page */
 }
+
 
 .App {
   display: flex;

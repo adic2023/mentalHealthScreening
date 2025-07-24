@@ -1,0 +1,38 @@
+/* Header.css */
+
+.header {
+    width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #ccc;
+  background-color: #fff;
+  box-sizing: border-box;
+}
+
+.header-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.header-nav a {
+  text-decoration: none;
+  color: #333;
+}
+
+.header-button {
+  border: 1px solid #333;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+}

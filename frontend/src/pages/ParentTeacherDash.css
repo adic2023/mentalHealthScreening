@@ -1,0 +1,225 @@
+/* Reuse the same styles from PsychDash.css */
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+  }
+  
+  .dashboard-body {
+    display: flex;
+    flex: 1;
+  }
+  
+  .dashboard-main {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    background-color: #f9fafb;
+  }
+  
+  .review-list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  
+  .pending-card {
+    border: 1px solid #ccc;
+    padding: 0.75rem;
+    margin: 0.5rem;
+    border-radius: 10px;
+    width: 250px;
+    font-size: 0.9rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    display: inline-block;
+    vertical-align: top;
+    background-color: white;
+  }
+  
+  .pending-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+  
+  .pending-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  
+  .pending-status {
+    background-color: #facc15;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #000;
+  }
+  
+  .pending-status.completed {
+    background-color: #10b981;
+    color: white;
+  }
+  
+  .review-btn {
+    margin-top: 1rem;
+    background-color: black;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: 600;
+  }
+  
+  .review-btn:hover {
+    background-color: #333;
+  }
+  
+  .review-btn.completed {
+    background-color: #059669;
+  }
+  
+  .review-btn.completed:hover {
+    background-color: #047857;
+  }
+  
+  .review-btn.pending {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+  }
+  
+  .review-btn.new-test {
+    background-color: #3b82f6;
+  }
+  
+  .review-btn.new-test:hover {
+    background-color: #2563eb;
+  }
+  
+  .pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+    gap: 0.5rem;
+  }
+  
+  .pagination button {
+    padding: 0.4rem 0.75rem;
+    background-color: #e5e7eb;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .pagination button:hover {
+    background-color: #d1d5db;
+  }
+  
+  .pagination .active-page {
+    background-color: black;
+    color: white;
+    font-weight: bold;
+  }
+  
+  /* First time user styles */
+  .first-time-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+  }
+  
+  .first-time-card {
+    background-color: white;
+    padding: 3rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    max-width: 600px;
+    text-align: center;
+  }
+  
+  .first-time-card h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: #222;
+  }
+  
+  .first-time-card p {
+    font-size: 1.1rem;
+    color: #6b7280;
+    margin-bottom: 2rem;
+  }
+  
+  .info-section {
+    background-color: #f3f4f6;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    text-align: left;
+  }
+  
+  .info-section h3 {
+    color: #374151;
+    margin-bottom: 1rem;
+  }
+  
+  .info-section ul {
+    color: #6b7280;
+    list-style-position: inside;
+  }
+  
+  .info-section li {
+    margin-bottom: 0.5rem;
+  }
+  
+  .take-new-test-btn {
+    padding: 1rem 2rem;
+    background-color: #3b82f6;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .take-new-test-btn:hover {
+    background-color: #2563eb;
+  }
+  
+  /* Add new test card styles */
+  .add-new-card {
+    border: 2px dashed #d1d5db;
+    background-color: #f9fafb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 150px;
+  }
+  
+  .add-new-card:hover {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+  }
+  
+  .add-new-content {
+    text-align: center;
+  }
+  
+  .add-new-content h3 {
+    color: #374151;
+    margin-bottom: 0.5rem;
+  }
+  
+  .add-new-content p {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }

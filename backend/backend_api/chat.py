@@ -190,24 +190,14 @@ async def respond(req: RespondRequest):
             }
 
         elif user_intent == "direct_answer":
-            clean_option = extract_option_from_llm_response(user_msg)
-            store_response(req.test_id, index, current_question, clean_option)
-
-            next_index = index + 1
-            if next_index >= len(questions):
-                # FIXED: Don't mark as submitted, just return completion message
-                return {
-                    "message": "Thanks! That was the last question. All questions completed! You can now submit your test responses.",
-                    "question_index": None,
-                    "completed": True
-                }
-
-            next_q = questions[next_index]
-            next_q_prompt = build_question_prompt(next_q, req.child_name, req.respondent_type)
+            suggested = extract_option_from_llm_response(user_msg)
             return {
-                "message": f"Got it – '{clean_option}' noted.\n\nNext question:\n{next_q_prompt}",
-                "question_index": next_index,
-                "suggested_option": None
+                "message": f"Got it – sounds like '{suggested}'. Does that sound right?",
+                "question_index": index,
+                "suggested_option": suggested,
+                "child_id": req.child_id,
+                "test_id": req.test_id,
+                "respondent_type": req.respondent_type
             }
 
         elif user_intent == "sharing_experience" or user_intent == "unclear":

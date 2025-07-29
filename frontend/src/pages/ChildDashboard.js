@@ -1,4 +1,4 @@
-// ChildDashboard.js - updated to enforce age restrictions
+// ChildDashboard.js - updated to check review completion status
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
@@ -8,6 +8,7 @@ function ChildDashboard() {
   const navigate = useNavigate();
   const [childDetails, setChildDetails] = useState(null);
   const [testData, setTestData] = useState(null);
+  const [reviewStatus, setReviewStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -35,8 +36,25 @@ function ChildDashboard() {
         if (!testRes.ok) throw new Error(testJson.detail || 'Failed to fetch test');
 
         setChildDetails(childJson);
-        setTestData(testJson.tests?.[0] || null);const matchingTest = testJson.tests?.find(t => t.child_id === childId) || null;
+        const matchingTest = testJson.tests?.find(t => t.child_id === childId) || null;
         setTestData(matchingTest);
+
+        // Check review status if test exists
+        if (matchingTest) {
+          try {
+            const reviewRes = await fetch(`http://localhost:8000/review/${childId}?email=${email}&role=child`);
+            if (reviewRes.ok) {
+              const reviewJson = await reviewRes.json();
+              setReviewStatus(reviewJson.status);
+            } else {
+              // Review not completed yet
+              setReviewStatus('pending');
+            }
+          } catch (reviewError) {
+            // Review not found or not completed
+            setReviewStatus('pending');
+          }
+        }
       } catch (err) {
         console.error(err);
         setError(err.message);
@@ -51,9 +69,21 @@ function ChildDashboard() {
   const handleButtonClick = () => {
     if (!childDetails || !childDetails.age) return;
 
-    if (childDetails.age >= 18) {
+    // Check both age and review completion
+    if (childDetails.age >= 18 && reviewStatus === 'reviewed') {
       navigate(`/test-results/${childDetails.child_id}?email=${email}&role=child`);
     }
+  };
+
+  const getButtonText = () => {
+    if (!testData) return 'No Test Available';
+    if (childDetails.age < 18) return 'Test In Progress';
+    if (reviewStatus === 'reviewed') return 'View Results';
+    return 'Awaiting Review';
+  };
+
+  const isButtonEnabled = () => {
+    return testData && childDetails.age >= 18 && reviewStatus === 'reviewed';
   };
 
   if (loading) return <div className="dashboard-container"><Header showSignup={false} /><p>Loading...</p></div>;
@@ -71,8 +101,8 @@ function ChildDashboard() {
               <div className="pending-card-header">
                 <h3>{childDetails.name}</h3>
                 {testData && (
-                  <span className={`pending-status ${testData.status === 'Review Completed' ? 'completed' : 'pending'}`}>
-                    {testData.status || 'In Progress'}
+                  <span className={`pending-status ${reviewStatus === 'completed' ? 'completed' : 'pending'}`}>
+                    {reviewStatus === 'completed' ? 'Review Completed' : 'Review Pending'}
                   </span>
                 )}
               </div>
@@ -80,8 +110,12 @@ function ChildDashboard() {
               <p>Gender: {childDetails.gender}</p>
               <p><strong>Sharing Code:</strong> {childDetails.code}</p>
               {testData && (
-                <button className="review-btn pending" disabled={childDetails.age < 18} onClick={handleButtonClick}>
-                  {childDetails.age >= 18 ? 'View Results' : 'Test In Progress'}
+                <button 
+                  className={`review-btn ${isButtonEnabled() ? 'completed' : 'pending'}`} 
+                  disabled={!isButtonEnabled()} 
+                  onClick={handleButtonClick}
+                >
+                  {getButtonText()}
                 </button>
               )}
             </div>

@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import './Results.css';
 
 function Results() {
-  const { id } = useParams(); // id = child_id
+  const { childId } = useParams(); // Changed from 'id' to 'childId' to match the route
   const navigate = useNavigate();
   const [resultData, setResultData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,37 +17,97 @@ function Results() {
 
         // Fetch user's own test scores
         const resultRes = await fetch(
-          `http://localhost:8000/test/results/${id}?email=${userEmail}&role=${userRole}`
+          `http://localhost:8000/test/results/${childId}?email=${userEmail}&role=${userRole}`
         );
         if (!resultRes.ok) throw new Error('Failed to fetch user test results');
         const result = await resultRes.json();
 
-        // Fetch psychologist review
-        const reviewRes = await fetch(`http://localhost:8000/review/${id}`);
-        if (!reviewRes.ok) throw new Error('Failed to fetch psychologist review');
-        const review = await reviewRes.json();
-
-        setResultData({
-          childName: result.child_name,
-          testDate: result.review_date || 'N/A',
+        // Initialize result data with test results
+        let resultData = {
+          childName: result.child_name || 'Unknown',
+          testDate: result.review_date || result.created_at?.split('T')[0] || 'N/A',
           testType: 'SDQ Screening',
           takenBy: userRole,
-          psychologistName: review?.reviewed_by || 'Pending',
-          reviewDate: review?.reviewed_at?.split('T')[0] || 'Pending',
-          scores: result.user_score || {},
-          psychologistReview: review.psychologist_review || review.ai_summary || 'Pending'
-        });
+          psychologistName: 'Pending',
+          reviewDate: 'Pending',
+          scores: {},
+          psychologistReview: 'Review is still pending. Please check back later.'
+        };
+
+        // Process scores from the test data structure
+        if (result.user_score && result.user_score.subscale_scores) {
+          const subscaleScores = result.user_score.subscale_scores;
+          const maxScore = result.user_score.max_possible_score || 50;
+          
+          // Map the subscale scores to the expected format
+          const processedScores = {};
+          Object.entries(subscaleScores).forEach(([key, value]) => {
+            // Determine score level based on SDQ scoring guidelines
+            let level = 'normal';
+            if (key === 'prosocial') {
+              // For prosocial, lower scores are concerning
+              if (value <= 4) level = 'abnormal';
+              else if (value <= 5) level = 'borderline';
+              else level = 'normal';
+            } else {
+              // For other subscales, higher scores are concerning
+              if (value >= 7) level = 'abnormal';
+              else if (value >= 6) level = 'borderline';
+              else level = 'normal';
+            }
+            
+            processedScores[key] = {
+              score: value,
+              maxScore: 10,
+              level: level
+            };
+          });
+          
+          resultData.scores = processedScores;
+        }
+
+        // Try to fetch psychologist review (this might fail with 422)
+        try {
+          const reviewRes = await fetch(`http://localhost:8000/review/${childId}?email=${userEmail}&role=${userRole}`);
+          if (reviewRes.ok) {
+            const review = await reviewRes.json();
+            // Update with review data if available
+            if (review.status === "reviewed") {
+              resultData.psychologistName = review?.reviewed_by || 'System';
+              resultData.reviewDate = review?.submitted_at?.split('T')[0] || 'Completed';
+              resultData.psychologistReview = review.psychologist_review || review.ai_generated_summary || 'Review completed but content not available.';
+            }
+          } else {
+            console.log('Review not yet available (422 expected for pending reviews)');
+          }
+        } catch (reviewError) {
+          console.log('Review fetch failed (expected for pending reviews):', reviewError.message);
+        }
+
+        setResultData(resultData);
       } catch (error) {
         console.error('Error fetching results:', error);
+        // Set error state with minimal data
+        setResultData({
+          childName: 'Unknown',
+          testDate: 'N/A',
+          testType: 'SDQ Screening',
+          takenBy: 'Unknown',
+          psychologistName: 'Error',
+          reviewDate: 'Error',
+          scores: {},
+          psychologistReview: 'Error loading results. Please try again later.'
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [id]);
+  }, [childId]); // Changed from 'id' to 'childId'
 
   const getScoreColor = (level) => {
+    if (!level) return '#6b7280'; // Default color if level is undefined
     switch (level.toLowerCase()) {
       case 'normal': return '#10b981';
       case 'borderline': return '#f59e0b';
@@ -57,6 +117,7 @@ function Results() {
   };
 
   const getScoreWidth = (score, maxScore) => {
+    if (!score || !maxScore) return 0;
     return (score / maxScore) * 100;
   };
 
@@ -67,6 +128,17 @@ function Results() {
         <div className="loading-container">
           <div className="loading-spinner"></div>
           <p>Loading results...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!resultData) {
+    return (
+      <div className="results-container">
+        <Header showSignup={false} />
+        <div className="loading-container">
+          <p>Error loading results. Please try again later.</p>
         </div>
       </div>
     );
@@ -122,35 +194,42 @@ function Results() {
           <div className="scores-card">
             <h2>Your Assessment Scores</h2>
             <div className="scores-grid">
-              {Object.entries(resultData.scores).map(([category, data]) => (
-                <div key={category} className="score-item">
-                  <div className="score-header">
-                    <span className="score-category">
-                      {category === 'peerProblems' ? 'Peer Problems' :
-                       category === 'prosocial' ? 'Prosocial Behavior' :
-                       category.charAt(0).toUpperCase() + category.slice(1)}
-                    </span>
-                    <span 
-                      className="score-level"
-                      style={{ color: getScoreColor(data.level) }}
-                    >
-                      {data.level}
-                    </span>
+              {resultData.scores && Object.keys(resultData.scores).length > 0 ? (
+                Object.entries(resultData.scores).map(([category, data]) => (
+                  <div key={category} className="score-item">
+                    <div className="score-header">
+                      <span className="score-category">
+                        {category === 'peer' ? 'Peer Problems' :
+                         category === 'prosocial' ? 'Prosocial Behavior' :
+                         category === 'emotional' ? 'Emotional Symptoms' :
+                         category === 'conduct' ? 'Conduct Problems' :
+                         category === 'hyperactivity' ? 'Hyperactivity' :
+                         category.charAt(0).toUpperCase() + category.slice(1)}
+                      </span>
+                      <span 
+                        className="score-level"
+                        style={{ color: getScoreColor(data.level) }}
+                      >
+                        {data.level}
+                      </span>
+                    </div>
+                    <div className="score-bar-container">
+                      <div 
+                        className="score-bar"
+                        style={{ 
+                          width: `${getScoreWidth(data.score, data.maxScore)}%`,
+                          backgroundColor: getScoreColor(data.level)
+                        }}
+                      ></div>
+                    </div>
+                    <div className="score-numbers">
+                      <span>{data.score}/{data.maxScore}</span>
+                    </div>
                   </div>
-                  <div className="score-bar-container">
-                    <div 
-                      className="score-bar"
-                      style={{ 
-                        width: `${getScoreWidth(data.score, data.maxScore)}%`,
-                        backgroundColor: getScoreColor(data.level)
-                      }}
-                    ></div>
-                  </div>
-                  <div className="score-numbers">
-                    <span>{data.score}/{data.maxScore}</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p>No score data available</p>
+              )}
             </div>
           </div>
 

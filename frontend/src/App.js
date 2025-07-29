@@ -9,6 +9,7 @@ import Review from './pages/Review';
 import Results from './pages/Results';
 import PsychDash from './pages/PsychDash';
 import ChildDashboard from './pages/ChildDashboard'; // Ensure this file exists
+import ThankYou from './pages/ThankYou';
 
 function App() {
   return (
@@ -19,9 +20,10 @@ function App() {
         <Route path="/ParentTeacherDashboard" element={<ParentTeacherDash />} />
         <Route path="/ChildDashboard" element={<ChildDashboard />} />
         <Route path="/ChildRegistration" element={<ChildRegistration />} />
-        <Route path="/Review/:id" element={<Review />} />
+        <Route path="/review/:testId" element={<Review />} />
         <Route path="/test-results/:childId" element={<Results />} />
         <Route path="/PsychDashboard" element={<PsychDash />} />
+        <Route path="/thank-you" element={<ThankYou />} />
       </Routes>
     </Router>
   );

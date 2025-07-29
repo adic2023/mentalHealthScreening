@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from db.mongo_handler import (
     mark_test_submitted, check_all_submitted, generate_score, 
     create_review_if_ready, get_child_tests_summary, get_test_results_for_user,
-    upsert_review_and_generate_summary
+    upsert_review_and_generate_summary,get_review_status_by_child_id
 )
 
 router = APIRouter()
@@ -103,11 +103,13 @@ def get_dashboard_summary(email: str = Query(...), role: str = Query(...)):
                     break
             
             if user_test:
+                # Check review status directly from reviews collection
+                review_status = get_review_status_by_child_id(child_data['child_id'])
+                
                 # Determine overall status based on all tests for this child
                 all_submitted = all(t.get('submitted', False) for t in child_tests)
-                review_completed = child_data.get('review_status') == 'completed'
                 
-                if review_completed:
+                if review_status == 'reviewed':
                     status = 'Review Completed'
                 elif all_submitted:
                     status = 'Review Pending'  
@@ -196,5 +198,25 @@ def get_test_score(test_id: str):
             "status": "completed" if test.get("submitted") else "in_progress"
         }
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/score/by-child/{child_id}")
+def get_best_score_by_child(child_id: str):
+    """
+    Return highest available score from submitted tests for a child
+    """
+    from db.mongo_handler import tests_collection
+    try:
+        tests = list(tests_collection.find({
+            "child_id": child_id,
+            "submitted": True,
+            "scores": {"$ne": None}
+        }))
+        if not tests:
+            raise HTTPException(status_code=404, detail="No submitted scored tests found for this child")
+
+        best_test = max(tests, key=lambda t: t.get("scores", {}).get("total_score", 0))
+        return {"child_id": child_id, "total_score": best_test["scores"]["total_score"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

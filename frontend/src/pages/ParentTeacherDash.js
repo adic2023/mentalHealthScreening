@@ -83,10 +83,11 @@ function ParentTeacherDash() {
   const handleTakeNewTest = () => navigate('/ChildRegistration');
 
   const handleViewResults = (childId, status) => {
+    console.log('handleViewResults called with:', { childId, status });
+    // Fixed: Check for the correct status value
     if (status === "Review Completed") {
-      const role = localStorage.getItem('userRole');
-      const email = localStorage.getItem('userEmail');
-      navigate(`/test-results/${childId}?email=${email}&role=${role}`);
+      console.log('Navigating to results for child:', childId);
+      navigate(`/test-results/${childId}`);
     }
   };
 
@@ -151,11 +152,13 @@ function ParentTeacherDash() {
               <h2>Your Test History</h2>
               <h4>({indexOfFirstItem + 1}–{Math.min(indexOfLastItem, userTests.length)} of {userTests.length})</h4>
               <div className="review-list">
-                {currentItems.map((test) => (
+                {currentItems.map((test) => {
+                  console.log('Test data:', test); 
+                  return(
                   <div className="pending-card" key={test.test_id}>
                     <div className="pending-card-header">
                       <h3>{test.childName}</h3>
-                      <span className={`pending-status ${test.status === 'Review Completed' ? 'completed' : test.status === 'Review Pending' ? 'pending' : ''}`}>
+                      <span className={`pending-status ${test.status === 'Review Completed' ? 'reviewed' : test.status === 'Review Pending' ? 'pending' : ''}`}>
                         {test.status}
                       </span>
                     </div>
@@ -169,13 +172,15 @@ function ParentTeacherDash() {
                       >
                         View Results
                       </button>
+
                     ) : (
                       <button className="review-btn pending" disabled>
                         {test.status === 'In Progress' ? 'Test In Progress' : test.status === 'Review Pending' ? 'Awaiting Review' : test.status === 'Submitted - Waiting for Others' ? 'Waiting for Others' : 'Pending'}
                       </button>
                     )}
                   </div>
-                ))}
+                );
+              })}
               </div>
 
               <div className="review-list" style={{ marginTop: '2rem' }}>

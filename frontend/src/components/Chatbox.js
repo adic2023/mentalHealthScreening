@@ -11,11 +11,19 @@ function Chatbox({ childData, userRole, userEmail }) {
   const [loading, setLoading] = useState(false);
   const [testCompleted, setTestCompleted] = useState(false);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-focus input when loading stops
+  useEffect(() => {
+    if (started && !loading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [started, loading]);
 
   // Validate props on mount
   useEffect(() => {
@@ -43,7 +51,7 @@ function Chatbox({ childData, userRole, userEmail }) {
           age: childData.age,
           child_name: childData.name,
           child_id: childData.child_id,
-          respondent_type: userRole === 'student' ? 'child' : userRole,
+          respondent_type: userRole === 'child' ? 'child' : userRole,
           email: userEmail
         })
       });
@@ -150,9 +158,18 @@ function Chatbox({ childData, userRole, userEmail }) {
         throw new Error(data.detail || 'Failed to submit test');
       }
 
+      // Store submission success in localStorage for thank you page
+      localStorage.setItem('submissionSuccess', 'true');
+      localStorage.setItem('submittedTestId', testId);
+      
+      // Redirect to thank you page after successful submission
+      setTimeout(() => {
+        window.location.href = '/thank-you';
+      }, 1000);
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Test submitted successfully! Thank you for completing the assessment. You can now close this window or return to your dashboard.'
+        content: 'Test submitted successfully! Redirecting to confirmation page...'
       }]);
 
     } catch (err) {
@@ -235,11 +252,13 @@ function Chatbox({ childData, userRole, userEmail }) {
       ) : (
         <form onSubmit={handleUserInput} className="chatbox-form">
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={loading ? "Processing..." : "Type your reply..."}
             className="chatbox-input"
             disabled={loading}
+            autoFocus
           />
           <button 
             className="chatbox-submit" 

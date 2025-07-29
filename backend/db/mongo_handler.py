@@ -320,31 +320,34 @@ def get_pending_reviews():
     """Get all reviews pending psychologist review"""
     reviews = reviews_collection.find({"status": "pending"})
     result = []
-    
+
     for review in reviews:
         child_info = get_child_by_id(review["child_id"])
         result.append({
             "child_id": review["child_id"],
-            "child_name": child_info.get("name", "Unknown") if child_info else "Unknown",
-            "submitted_at": review["submitted_at"]
+            "name": child_info.get("name", "Unknown") if child_info else "Unknown",
+            "date": review.get("submitted_at", "Unknown"),
+            "screeningType": "SDQ",
+            "status": "pending"
         })
-    
+
     return result
 
 def get_completed_reviews():
     """Get all completed psychologist reviews"""
     reviews = reviews_collection.find({"status": "reviewed"})
     result = []
-    
+
     for review in reviews:
         child_info = get_child_by_id(review["child_id"])
         result.append({
             "child_id": review["child_id"],
-            "child_name": child_info.get("name", "Unknown") if child_info else "Unknown",
-            "reviewed_by": review["reviewed_by"],
-            "reviewed_at": review.get("reviewed_at", review["submitted_at"])
+            "name": child_info.get("name", "Unknown") if child_info else "Unknown",
+            "date": review.get("reviewed_at", review.get("submitted_at", "Unknown")),
+            "screeningType": "SDQ",
+            "status": "reviewed"
         })
-    
+
     return result
 
 def get_full_review(child_id):

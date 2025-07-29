@@ -9,14 +9,29 @@ function PsychDash() {
   const [pendingReviews, setPendingReviews] = useState([]);
 
   useEffect(() => {
-    const data = Array.from({ length: 30 }).map((_, i) => ({
-      id: `${i + 1}`,
-      name: `Student ${String.fromCharCode(65 + i)}`,
-      date: `2025-07-${(20 + i).toString().padStart(2, '0')}`,
-      screeningType: 'SDQ',
-      status: 'Awaiting Review',
-    }));
-    setPendingReviews(data);
+    const fetchPendingReviews = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/reviews/pending");
+        const data = await response.json();
+        console.log("Fetched pending reviews:", data);
+
+        const formatted = data.map((item, index) => ({
+          id: item.child_id || index + 1,
+          name: item.name || `Child ${index + 1}`,
+          date: item.date || 'Unknown',
+          screeningType: 'SDQ',
+          status: 'pending', // fixed status since these are all pending
+        }));
+
+        console.log("hello:", formatted)
+
+        setPendingReviews(formatted);
+      } catch (error) {
+        console.error("Failed to fetch pending reviews:", error);
+      }
+    };
+
+    fetchPendingReviews();
   }, []);
 
   const navigate = useNavigate();
@@ -39,6 +54,7 @@ function PsychDash() {
         <Sidebar>
           <Menu>
             <SubMenu label="View Reviewed Reports">
+              <Link to="/review/completed"><MenuItem>Completed Reviews</MenuItem></Link>
             </SubMenu>
             <Link to="/screeningTest"><MenuItem> Test Interface </MenuItem></Link>
             <MenuItem><a href="https://www.sdqinfo.org/a0.html">SDQ Information</a></MenuItem>
@@ -47,7 +63,7 @@ function PsychDash() {
 
         <main className="dashboard-main">
           <h2>Pending Reports</h2>
-        <h4>({indexOfFirstItem + 1}–{Math.min(indexOfLastItem, pendingReviews.length)})</h4>
+          <h4>({indexOfFirstItem + 1}–{Math.min(indexOfLastItem, pendingReviews.length)})</h4>
           <div className="review-list">
             {currentItems.map((review) => (
               <div className="pending-card" key={review.id}>
@@ -64,7 +80,6 @@ function PsychDash() {
             ))}
           </div>
 
-          {/* Pagination Buttons */}
           <div className="pagination">
             {Array.from({ length: totalPages }, (_, i) => (
               <button

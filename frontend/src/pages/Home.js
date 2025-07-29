@@ -1,3 +1,4 @@
+// Updated Home.js with correct logic and preserved UI
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
@@ -13,7 +14,7 @@ export default function Home() {
   const [isSignup, setIsSignup] = useState(false);
 
   const roleOptions = [
-    { value: 'student', label: 'Student' },
+    { value: 'child', label: 'Child' },
     { value: 'parent', label: 'Parent' },
     { value: 'teacher', label: 'Teacher' },
     { value: 'psychologist', label: 'Psychologist' }
@@ -52,24 +53,52 @@ export default function Home() {
         return;
       }
 
-      // Login flow — Store necessary user details
       localStorage.setItem('userId', data.user_id);
       localStorage.setItem('userRole', data.role);
       localStorage.setItem('userEmail', email);
 
-      // Navigate based on role
       if (data.role === 'psychologist') {
         navigate('/PsychDashboard');
       } else if (data.role === 'parent' || data.role === 'teacher') {
         navigate('/ParentTeacherDashboard');
-      } else if (data.role === 'student') {
-        // Student goes to child registration/login page
-        navigate('/ChildRegistration');
-      } else {
-        // Fallback - shouldn't happen with current roles
-        navigate('/ScreeningTest');
+      } else if (data.role === 'child') {
+        // Check if child registered
+        const childCheckRes = await fetch(`http://localhost:8000/child/code/${data.code}`);
+        const childCheck = await childCheckRes.json();
+      
+        if (!childCheckRes.ok || !childCheck.child_id) {
+          navigate('/ChildRegistration');
+          return;
+        }
+      
+        localStorage.setItem('childId', childCheck.child_id);
+        localStorage.setItem('childName', childCheck.name);
+        localStorage.setItem('childAge', childCheck.age.toString());
+      
+        const age = childCheck.age;
+      
+        if (age < 11) {
+          // Under 11 – show dashboard with name/code/age only
+          navigate('/ChildDashboard');
+        } else {
+          // Check if test exists for >11
+          const testRes = await fetch(`http://localhost:8000/test/summary?email=${email}&role=child`);
+          const testData = await testRes.json();
+      
+          if (testRes.ok && testData.tests) {
+            const hasTest = testData.tests.some(t => t.child_id === childCheck.child_id);
+            if (hasTest) {
+              navigate('/ChildDashboard');
+            } else {
+              // Registered but hasn't started test
+              navigate('/ChildRegistration');
+            }
+          } else {
+            // API error fallback
+            navigate('/ChildRegistration');
+          }
+        }
       }
-
     } catch (err) {
       console.error(err);
       alert('Network error');

@@ -1,45 +1,36 @@
-import requests
+# services/llm_chat.py
+
 import os
+import requests
+from dotenv import load_dotenv
+load_dotenv()
+
+
+LLM_BACKEND = os.getenv("LLM_BACKEND")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 def query_llm(prompt: str) -> str:
-    response = requests.post(
-        "http://localhost:1234/v1/chat/completions",
-        headers={"Content-Type": "application/json"},
-        json={
-            "model": "Qwen2-7B-Instruct",
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7
-        }
-    )
+    if LLM_BACKEND == "gemini":
+        return query_gemini(prompt)
+    elif LLM_BACKEND == "qwen":
+        return query_qwen(prompt)
+    else:
+        raise ValueError(f"Unsupported LLM_BACKEND: {LLM_BACKEND}")
+
+def query_gemini(prompt: str) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+    headers = {
+        "Content-Type": "application/json",
+        "X-goog-api-key": GEMINI_API_KEY
+    }
+    payload = {
+        "contents": [
+            {
+                "parts": [{"text": prompt}]
+            }
+        ]
+    }
+    response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
-    return response.json()['choices'][0]['message']['content']
-
-
-# import requests
-
-# def query_llm(prompt: str, history: list = None, system_instruction: str = None) -> str:
-#     # Default values if not provided
-#     history = history or []
-#     system_instruction = system_instruction or "You are a helpful assistant."
-
-#     messages = [{"role": "system", "content": system_instruction}]
-
-#     # Add previous chat history
-#     messages += history
-
-#     # Add the latest user prompt
-#     messages.append({"role": "user", "content": prompt})
-
-#     response = requests.post(
-#         "http://localhost:1234/v1/chat/completions",
-#         headers={"Content-Type": "application/json"},
-#         json={
-#             "model": "Qwen2-7B-Instruct",
-#             "messages": messages,
-#             "temperature": 0.7
-#         }
-#     )
-#     response.raise_for_status()
-#     return response.json()['choices'][0]['message']['content'].strip()
+    return response.json()["candidates"][0]["content"]["parts"][0]["text"]

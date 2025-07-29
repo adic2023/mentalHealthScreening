@@ -8,7 +8,7 @@ def embed_text(text: str):
     return model.encode(text).tolist()
 
 def store_vector(test_id: str, question_index: int, vector: list, text: str):
-    store_vector_response(test_id, question_index, vector, text)  # ✅ actual storage
+    store_vector_response(test_id, question_index, vector, text)  #actual storage
     print(f"[Vector DB] Stored for test {test_id}, Q{question_index}: Text = {text[:30]}..., Embedding Length = {len(vector)}")
 
 

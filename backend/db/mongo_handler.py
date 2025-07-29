@@ -1,6 +1,8 @@
 # db/mongo_handler.py
 from pymongo import MongoClient
 from datetime import datetime
+from services.llm_chat import query_llm
+from core.prompt_builder import build_summary_prompt
 
 client = MongoClient("mongodb://localhost:27017")
 db = client["sdq_test_db"]
@@ -24,13 +26,14 @@ def get_user_by_email(email):
     return users_collection.find_one({"email": email})
 
 # ---------------------------- CHILD REGISTRATION FUNCTIONS ----------------------------
-def register_child(child_id, name, age, gender, code):
+def register_child(child_id, name, age, gender, code, email):
     children_collection.insert_one({
         "child_id": child_id,
         "name": name,
         "age": age,
         "gender": gender,
         "code": code,
+        "email": email,
         "registered_on": datetime.utcnow()
     })
 
@@ -459,3 +462,72 @@ def get_test_by_id(test_id):
     if not test:
         raise Exception(f"Test with id {test_id} not found")
     return test
+
+def upsert_review_and_generate_summary(test_id):
+    """Update or create review with new summary based on all submitted tests so far."""
+    test = get_test_by_id(test_id)
+    if not test:
+        raise Exception("Invalid test_id")
+
+    child_id = test["child_id"]
+    all_tests = list(tests_collection.find({"child_id": child_id, "submitted": True}))
+    if not all_tests:
+        print("No completed tests yet")
+        return False
+
+    child_info = get_child_by_id(child_id)
+    if not child_info:
+        print("Child info not found")
+        return False
+
+    review = reviews_collection.find_one({"child_id": child_id})
+
+    # Prepare updated test_ids and scores
+    test_ids = {}
+    scores = {}
+    for t in all_tests:
+        test_ids[t["respondent_type"]] = t["test_id"]
+        scores[t["respondent_type"]] = t.get("scores", {})
+
+    # Generate fresh AI summary using LLM
+    prompt = build_summary_prompt(all_tests, child_info)
+    ai_summary = query_llm(prompt)
+
+    if not review:
+        # Create new review
+        reviews_collection.insert_one({
+            "child_id": child_id,
+            "child_test_id": test_ids.get("child", ""),
+            "parent_test_id": test_ids.get("parent", ""),
+            "teacher_test_id": test_ids.get("teacher", ""),
+            "ai_generated_summary": ai_summary,
+            "psychologist_review": ai_summary,
+            "scores": scores,
+            "status": "pending",
+            "reviewed_by": None,
+            "submitted_at": datetime.utcnow()
+        })
+        print(f"New review created for child {child_id}")
+    else:
+        # Update existing review
+        reviews_collection.update_one(
+            {"child_id": child_id},
+            {
+                "$set": {
+                    "child_test_id": test_ids.get("child", ""),
+                    "parent_test_id": test_ids.get("parent", ""),
+                    "teacher_test_id": test_ids.get("teacher", ""),
+                    "ai_generated_summary": ai_summary,
+                    "psychologist_review": ai_summary,
+                    "scores": scores,
+                    "submitted_at": datetime.utcnow()
+                }
+            }
+        )
+        print(f"Review updated for child {child_id}")
+
+    return True
+
+def login_child_by_email(email):
+    """Fetch child data using email (used in auth login for children)"""
+    return children_collection.find_one({"email": email})

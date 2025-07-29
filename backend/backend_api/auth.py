@@ -31,8 +31,23 @@ def login(req: LoginRequest):
     if not user or user["password_hash"] != req.password or user["role"] != req.role:
         raise HTTPException(status_code=401, detail="Invalid credentials or mismatched role")
 
-    return {
+    response = {
         "message": "Login successful",
         "role": user["role"],
         "user_id": str(user["_id"])
     }
+
+    # For child users, include child info from DB
+    if user["role"] == "child":
+        from db.mongo_handler import login_child_by_email
+        child_data = login_child_by_email(req.email)
+        if child_data:
+            response.update({
+                "child_id": child_data["child_id"],
+                "code": child_data["code"],
+                "name": child_data["name"],
+                "age": child_data["age"],
+                "gender": child_data.get("gender", "")
+            })
+
+    return response

@@ -12,8 +12,9 @@ class ChildRegisterRequest(BaseModel):
     age: int
     gender: str
     first_time: bool
-    code: Optional[str] = None  # For returning users
-
+    code: Optional[str] = None
+    email: str  # <-- this is now required
+    
 class ChildLoginRequest(BaseModel):
     code: str
 
@@ -25,7 +26,7 @@ def register(req: ChildRegisterRequest):
             child_id = str(uuid.uuid4())
             code = str(uuid.uuid4())[:8].upper()  # 8-character code for easier sharing
             
-            register_child(child_id, req.name, req.age, req.gender, code)
+            register_child(child_id, req.name, req.age, req.gender, code, req.email)
             
             return {
                 "child_id": child_id,

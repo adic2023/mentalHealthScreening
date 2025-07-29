@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import './ChildRegistration.css';
@@ -12,8 +12,14 @@ function ChildRegistration() {
   const [loading, setLoading] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [childData, setChildData] = useState(null);
-  
+  const [userRole, setUserRole] = useState('');
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole');
+    setUserRole(role);
+  }, []);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -24,11 +30,12 @@ function ChildRegistration() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          age: parseInt(age),
-          gender,
-          first_time: isFirstTime,
-          code: isFirstTime ? null : code
+        name,
+        age: parseInt(age),
+        gender,
+        first_time: isFirstTime,
+        code: isFirstTime ? null : code,
+        email: localStorage.getItem('userEmail') // <-- add this
         })
       });
 
@@ -39,20 +46,31 @@ function ChildRegistration() {
         return;
       }
 
-      // Store child data for the test
       setChildData(data);
       localStorage.setItem('childId', data.child_id);
       localStorage.setItem('childName', data.name);
       localStorage.setItem('childAge', data.age.toString());
 
-      if (isFirstTime) {
-        // Show the sharing code
-        setRegistrationComplete(true);
+      if (userRole === 'child') {
+        if (isFirstTime) {
+          setRegistrationComplete(true); // show sharing code page
+        } else {
+          // Returning child: skip code page, go directly based on age
+          if (data.age < 11) {
+            navigate('/ChildDashboard');
+          } else {
+            navigate('/Test');
+          }
+        }
       } else {
-        // Returning user - go directly to test
-        navigate('/ScreeningTest');
+        // For parent or teacher
+        if (isFirstTime) {
+          setRegistrationComplete(true); // show code + next steps
+        } else {
+          navigate('/Test');
+        }
       }
-
+            
     } catch (err) {
       console.error(err);
       alert('Network error');
@@ -62,8 +80,14 @@ function ChildRegistration() {
   };
 
   const handleStartTest = () => {
-    navigate('/ScreeningTest');
+    const age = childData?.age;
+    if (age < 11) {
+      navigate('/ChildDashboard');
+    } else {
+      navigate('/Test');
+    }
   };
+  
 
   if (registrationComplete && childData) {
     return (
@@ -73,30 +97,23 @@ function ChildRegistration() {
           <div className="success-card">
             <h2>Registration Successful!</h2>
             <p>Hi {childData.name}! You've been registered successfully.</p>
-            
             <div className="sharing-code-section">
               <h3>Your Sharing Code:</h3>
               <div className="code-display">
                 <span className="sharing-code">{childData.code}</span>
               </div>
-              <p className="code-instructions">
-                {childData.instructions}
-              </p>
+              <p className="code-instructions">{childData.instructions}</p>
             </div>
-
             <div className="next-steps">
               <h4>What happens next?</h4>
               <ol>
-                <li>You'll take the assessment about yourself</li>
-                <li>Your parent and teacher will use code <strong>{childData.code}</strong> to take assessments about you</li>
-                <li>Once everyone completes their assessments, a psychologist will review the results</li>
-                <li>You'll receive detailed feedback and recommendations</li>
+                <li>You will take an assessment about yourself</li>
+                <li>Your parent and teacher will use the code <strong>{childData.code}</strong> to take their assessments</li>
+                <li>All responses will be reviewed by a psychologist</li>
+                <li>You’ll receive feedback and guidance</li>
               </ol>
             </div>
-
-            <button className="start-test-btn" onClick={handleStartTest}>
-              Start My Assessment
-            </button>
+            <button className="start-test-btn" onClick={handleStartTest}>Start My Assessment</button>
           </div>
         </div>
       </div>
@@ -109,17 +126,16 @@ function ChildRegistration() {
       <div className="registration-form-container">
         <div className="registration-card">
           <h2>Child Registration</h2>
-          
           <div className="toggle-section">
             <p>Are you taking the assessment for the first time?</p>
             <div className="toggle-buttons">
-              <button 
+              <button
                 className={isFirstTime ? 'toggle-btn active' : 'toggle-btn'}
                 onClick={() => setIsFirstTime(true)}
               >
                 First Time
               </button>
-              <button 
+              <button
                 className={!isFirstTime ? 'toggle-btn active' : 'toggle-btn'}
                 onClick={() => setIsFirstTime(false)}
               >
@@ -142,7 +158,6 @@ function ChildRegistration() {
                     required
                   />
                 </div>
-                
                 <div className="form-group">
                   <label htmlFor="age">Age:</label>
                   <input
@@ -156,7 +171,6 @@ function ChildRegistration() {
                     required
                   />
                 </div>
-                
                 <div className="form-group">
                   <label htmlFor="gender">Gender:</label>
                   <select
@@ -187,7 +201,6 @@ function ChildRegistration() {
                 <small>This is the code you received when you first registered</small>
               </div>
             )}
-
             <button type="submit" className="register-btn" disabled={loading}>
               {loading ? 'Processing...' : isFirstTime ? 'Register' : 'Continue'}
             </button>
@@ -197,9 +210,9 @@ function ChildRegistration() {
             <h4>About the SDQ Assessment:</h4>
             <ul>
               <li>25 questions about behavior and emotions</li>
-              <li>Takes 5-10 minutes to complete</li>
+              <li>Takes 5–10 minutes to complete</li>
               <li>Completely confidential</li>
-              <li>Results reviewed by qualified professionals</li>
+              <li>Reviewed by mental health professionals</li>
             </ul>
           </div>
         </div>

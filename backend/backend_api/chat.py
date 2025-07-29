@@ -2,14 +2,17 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from core.prompt_builder import (
-    get_questions_for_age, build_prompt, personalize_question, 
-    user_seems_confused, build_explanation_prompt, extract_option_from_llm_response
-)
+    get_questions_for_age, convert_to_first_person, format_question, build_question_prompt, 
+    build_system_instruction, build_analysis_prompt, build_explanation_prompt, extract_option_from_llm_response
+
+)   
 from services.llm_chat import query_llm
 from db.mongo_handler import store_response, create_or_resume_test, login_child_by_code
 from db.vector_store import embed_text, store_vector
 from core.context_tracker import extract_context, update_super_context
 import uuid
+from utils.intent_classifier import detect_user_intent
+from db.mongo_handler import get_test_by_id, mark_test_submitted
 
 router = APIRouter()
 
@@ -38,29 +41,6 @@ class ConfirmOptionRequest(BaseModel):
     question_index: int
     selected_option: str
     respondent_type: Optional[str] = "parent"  # Made optional with default
-
-def is_direct_answer(user_input: str) -> str:
-    """Check if user gave a direct SDQ answer and return the normalized option"""
-    user_lower = user_input.lower().strip()
-    
-    # Check for exact matches
-    if "not true" in user_lower:
-        return "Not True"
-    elif "certainly true" in user_lower:
-        return "Certainly True"
-    elif "somewhat true" in user_lower:
-        return "Somewhat True"
-    
-    # Check for single word answers
-    if user_lower in ["nottrue", "certainlytrue", "somewhattrue"]:
-        if user_lower == "nottrue":
-            return "Not True"
-        elif user_lower == "certainlytrue":
-            return "Certainly True"
-        elif user_lower == "somewhattrue":
-            return "Somewhat True"
-    
-    return None
 
 @router.post("/start")
 def start_test(req: StartRequest):
@@ -112,145 +92,146 @@ def start_test(req: StartRequest):
 @router.post("/respond")
 async def respond(req: RespondRequest):
     try:
-        # Validate required fields
         if not req.test_id or not req.child_id:
-            raise HTTPException(status_code=400, detail="test_id and child_id are required")
-            
+            raise HTTPException(status_code=400, detail="Missing test_id or child_id")
+
+        test_data = get_test_by_id(req.test_id)
+        if test_data.get("submitted"):
+            return {
+                "message": "This test has already been submitted. No further responses are needed.",
+                "completed": True,
+                "question_index": None
+            }
+
         questions = get_questions_for_age(req.age)
         index = req.question_index
         user_msg = req.chat_history[-1]["content"].strip() if req.chat_history else ""
 
-        # 1. Handle confusion — explain question simply via LLM
-        if user_seems_confused(user_msg) and 0 <= index < len(questions):
-            explanation_prompt = build_explanation_prompt(
-                questions[index], 
-                req.child_name, 
-                req.respondent_type
-            )
-            simplified = query_llm(explanation_prompt)
-            return {
-                "message": f"No problem! {simplified.strip()}\n\nSo, how would you answer: Not True, Somewhat True, or Certainly True?",
-                "question_index": index,
-                "child_name": req.child_name,
-                "child_id": req.child_id,
-                "test_id": req.test_id,
-                "respondent_type": req.respondent_type
-            }
+        if not user_msg:
+            return {"message": "Can you share more about this?", "question_index": index}
 
-        # 2. Extract context
-        context = extract_context(req.chat_history)
-        super_context = update_super_context({}, user_msg)
+        # ⏺️ Store vector representation for review
+        vector = embed_text(user_msg)
+        store_vector(req.test_id, max(0, index), vector, user_msg)
 
-        # 3. Start test
-        if index == -1 and any(x in user_msg.lower() for x in ["yes", "start", "go", "ready", "begin", "lets"]):
-            question = questions[0]
-            personalized = personalize_question(question, req.child_name, req.respondent_type)
+        # ▶️ Start test if index = -1 and user agrees
+        if index == -1 and any(x in user_msg.lower() for x in ["yes", "start", "go", "ready", "begin"]):
+            first_q = questions[0]
+            q_text = build_question_prompt(first_q, req.child_name, req.respondent_type)
             return {
-                "message": personalized,
+                "message": q_text,
                 "question_index": 0,
-                "child_name": req.child_name,
                 "child_id": req.child_id,
                 "test_id": req.test_id,
                 "respondent_type": req.respondent_type
             }
 
-        # 4. Test complete
+        # ✅ End of test check
         if index is None or index >= len(questions):
+            mark_test_submitted(req.test_id)
             return {
                 "message": "Thank you for completing the test!",
                 "question_index": None,
-                "child_id": req.child_id,
                 "completed": True,
-                "test_id": req.test_id,
-                "respondent_type": req.respondent_type
+                "test_id": req.test_id
             }
 
-        # 5. **NEW: Check for direct answer FIRST**
-        direct_answer = is_direct_answer(user_msg)
-        if direct_answer and 0 <= index < len(questions):
-            # User gave a direct answer - store it and move to next question
-            store_response(req.test_id, index, questions[index], direct_answer)
-            
+        # 🧠 Detect user intent
+        user_intent = detect_user_intent(req.chat_history)
+
+        current_question = questions[index]
+
+        # --- Intent-based handling ---
+        if user_intent == "confused" or user_intent == "asking_question":
+            explain_prompt = build_explanation_prompt(current_question, req.child_name, req.respondent_type)
+            explanation = query_llm(explain_prompt)
+            return {
+                "message": f"No worries! {explanation.strip()}\n\nSo how would you answer: Not True / Somewhat True / Certainly True?",
+                "question_index": index,
+                "child_id": req.child_id,
+                "test_id": req.test_id
+            }
+
+        elif user_intent == "confirmation" and req.suggested_option:
+            final_option = extract_option_from_llm_response(req.suggested_option)
+            store_response(req.test_id, index, current_question, final_option)
+
             next_index = index + 1
             if next_index >= len(questions):
+                mark_test_submitted(req.test_id)
                 return {
-                    "message": "Perfect! Thank you for completing the questionnaire.",
+                    "message": "Perfect! That was the last question. Test completed.",
                     "question_index": None,
-                    "child_id": req.child_id,
-                    "completed": True,
-                    "test_id": req.test_id,
-                    "respondent_type": req.respondent_type
+                    "completed": True
                 }
-            
-            next_q = personalize_question(questions[next_index], req.child_name, req.respondent_type)
+
+            next_q = questions[next_index]
+            next_q_prompt = build_question_prompt(next_q, req.child_name, req.respondent_type)
             return {
-                "message": f"Got it! Next question:\n\n{next_q}",
+                "message": f"Great! Next question:\n\n{next_q_prompt}",
                 "question_index": next_index,
-                "child_name": req.child_name,
-                "child_id": req.child_id,
-                "test_id": req.test_id,
-                "respondent_type": req.respondent_type
+                "suggested_option": None
             }
 
-        # 6. User confirms LLM suggestion
-        if req.suggested_option and any(word in user_msg.lower() for word in ["confirm", "yes", "correct", "right", "sounds good", "that's right"]):
-            # Extract the actual option from the suggested_option
-            selected_option = extract_option_from_llm_response(req.suggested_option)
-            store_response(req.test_id, index, questions[index], selected_option)
-            
+        elif user_intent == "correction":
+            # Re-analyze from new input
+            prompt = build_analysis_prompt(
+                age=req.age,
+                question_index=index,
+                chat_history=req.chat_history,
+                child_name=req.child_name,
+                respondent_type=req.respondent_type
+            )
+            llm_output = query_llm(prompt)
+            new_suggestion = extract_option_from_llm_response(llm_output)
+            return {
+                "message": f"{llm_output.strip()}\n\n",
+                "question_index": index,
+                "suggested_option": new_suggestion
+            }
+
+        elif user_intent == "direct_answer":
+            clean_option = extract_option_from_llm_response(user_msg)
+            store_response(req.test_id, index, current_question, clean_option)
+
             next_index = index + 1
             if next_index >= len(questions):
+                mark_test_submitted(req.test_id)
                 return {
-                    "message": "Perfect! Thank you for completing the questionnaire.",
+                    "message": "Thanks! That was the last question. Test completed.",
                     "question_index": None,
-                    "child_id": req.child_id,
-                    "completed": True,
-                    "test_id": req.test_id,
-                    "respondent_type": req.respondent_type
+                    "completed": True
                 }
-            
-            next_q = personalize_question(questions[next_index], req.child_name, req.respondent_type)
+
+            next_q = questions[next_index]
+            next_q_prompt = build_question_prompt(next_q, req.child_name, req.respondent_type)
             return {
-                "message": f"Great! Next question:\n\n{next_q}",
+                "message": f"Got it – '{clean_option}' noted.\n\nNext question:\n{next_q_prompt}",
                 "question_index": next_index,
-                "child_name": req.child_name,
-                "child_id": req.child_id,
-                "test_id": req.test_id,
-                "respondent_type": req.respondent_type
+                "suggested_option": None
             }
 
-        # 7. Handle user corrections/clarifications
-        if req.suggested_option and any(word in user_msg.lower() for word in ["no", "wrong", "not right", "actually"]):
-            # User is correcting the previous suggestion, get new interpretation
-            pass  # Continue to step 8 to get new LLM analysis
+        elif user_intent == "sharing_experience" or user_intent == "unclear":
+            # Treat like open-ended input — analyze with LLM
+            prompt = build_analysis_prompt(
+                age=req.age,
+                question_index=index,
+                chat_history=req.chat_history,
+                child_name=req.child_name,
+                respondent_type=req.respondent_type
+            )
+            llm_output = query_llm(prompt)
+            suggested = extract_option_from_llm_response(llm_output)
+            return {
+                "message": f"{llm_output.strip()}\n\n",
+                "question_index": index,
+                "suggested_option": suggested
+            }
 
-        # 8. Store response to vector DB for memory/context
-        user_text = req.chat_history[-1]["content"] if req.chat_history else ""
-        vector = embed_text(user_text)
-        store_vector(req.test_id, index, vector, user_text)
-
-        # 9. Get LLM interpretation (only for descriptive answers)
-        prompt = build_prompt(
-            age=req.age,
-            question_index=index,
-            chat_history=req.chat_history,
-            child_name=req.child_name,
-            respondent_type=req.respondent_type,
-            is_analysis=True
-        )
-        llm_output = query_llm(prompt)
-
-        # Extract the actual option for storage
-        interpreted_option = extract_option_from_llm_response(llm_output)
-
+        # Fallback
         return {
-            "message": llm_output.strip(),
-            "question_index": index,
-            "child_name": req.child_name,
-            "child_id": req.child_id,
-            "suggested_option": interpreted_option,  # Store the clean option
-            "test_id": req.test_id,
-            "respondent_type": req.respondent_type
+            "message": "Sorry, I didn’t understand that. Could you say it again?",
+            "question_index": index
         }
 
     except Exception as e:
@@ -258,12 +239,24 @@ async def respond(req: RespondRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/confirm-option")
 def confirm_option(req: ConfirmOptionRequest):
+
     try:
         questions = get_questions_for_age(req.age)
-        question = questions[req.question_index]
+        if req.question_index >= len(questions):
+            raise HTTPException(status_code=400, detail="Invalid question index.")
 
+        test_data = get_test_by_id(req.test_id)
+        if test_data.get("submitted"):
+            return {
+                "message": "This test has already been submitted.",
+                "completed": True,
+                "question_index": None
+            }
+
+        question = questions[req.question_index]
         store_response(
             test_id=req.test_id,
             question_index=req.question_index,
@@ -273,21 +266,27 @@ def confirm_option(req: ConfirmOptionRequest):
 
         next_index = req.question_index + 1
         if next_index >= len(questions):
+            mark_test_submitted(req.test_id)
             return {
-                "message": "Test completed.", 
+                "message": "Thanks! That was the final question. Test completed.",
+                "question_index": None,
                 "completed": True,
-                "child_id": req.child_id,
                 "test_id": req.test_id,
+                "child_id": req.child_id,
                 "respondent_type": req.respondent_type
             }
 
+        next_question = get_questions_for_age(req.age)[next_index]
+        next_prompt = build_question_prompt(next_question, req.child_name, req.respondent_type)
+
         return {
-            "message": personalize_question(questions[next_index], req.child_name, req.respondent_type),
+            "message": f"Next question:\n\n{next_prompt}",
             "question_index": next_index,
-            "child_id": req.child_id,
-            "test_id": req.test_id,
             "completed": False,
+            "test_id": req.test_id,
+            "child_id": req.child_id,
             "respondent_type": req.respondent_type
         }
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

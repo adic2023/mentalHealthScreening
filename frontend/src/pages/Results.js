@@ -4,50 +4,47 @@ import Header from '../components/Header';
 import './Results.css';
 
 function Results() {
-  const { id } = useParams();
+  const { id } = useParams(); // id = child_id
   const navigate = useNavigate();
   const [resultData, setResultData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate API call to fetch results
-    setTimeout(() => {
-      const mockResultData = {
-        id: id,
-        childName: `Child ${String.fromCharCode(65 + parseInt(id.split('-')[1]) - 1)}`,
-        testDate: '2025-07-15',
-        testType: 'SDQ Screening',
-        takenBy: localStorage.getItem('userRole') || 'Parent',
-        psychologistName: 'Dr. Sarah Johnson',
-        reviewDate: '2025-07-18',
-        overallAssessment: 'Normal',
-        scores: {
-          emotional: { score: 3, level: 'Normal', maxScore: 10 },
-          conduct: { score: 2, level: 'Normal', maxScore: 10 },
-          hyperactivity: { score: 6, level: 'Borderline', maxScore: 10 },
-          peerProblems: { score: 1, level: 'Normal', maxScore: 10 },
-          prosocial: { score: 8, level: 'Normal', maxScore: 10 }
-        },
-        psychologistReview: `Based on the SDQ screening results, ${resultData?.childName || 'the child'} shows overall normal behavioral patterns with some borderline concerns in hyperactivity/inattention. 
+    const fetchData = async () => {
+      try {
+        const userEmail = localStorage.getItem('userEmail');
+        const userRole = localStorage.getItem('userRole');
 
-The emotional symptoms score of 3 is within the normal range, indicating good emotional regulation. The conduct problems score of 2 suggests minimal behavioral issues.
+        // Fetch user's own test scores
+        const resultRes = await fetch(
+          `http://localhost:8000/test/results/${id}?email=${userEmail}&role=${userRole}`
+        );
+        if (!resultRes.ok) throw new Error('Failed to fetch user test results');
+        const result = await resultRes.json();
 
-However, the hyperactivity/inattention score of 6 falls in the borderline range, which may warrant some attention. This could manifest as difficulty concentrating, restlessness, or impulsive behavior.
+        // Fetch psychologist review
+        const reviewRes = await fetch(`http://localhost:8000/review/${id}`);
+        if (!reviewRes.ok) throw new Error('Failed to fetch psychologist review');
+        const review = await reviewRes.json();
 
-The peer relationship score of 1 is excellent, showing strong social skills and positive interactions with peers. The prosocial behavior score of 8 is also very good, indicating kindness, helpfulness, and consideration for others.
+        setResultData({
+          childName: result.child_name,
+          testDate: result.review_date || 'N/A',
+          testType: 'SDQ Screening',
+          takenBy: userRole,
+          psychologistName: review?.reviewed_by || 'Pending',
+          reviewDate: review?.reviewed_at?.split('T')[0] || 'Pending',
+          scores: result.user_score || {},
+          psychologistReview: review.psychologist_review || review.ai_summary || 'Pending'
+        });
+      } catch (error) {
+        console.error('Error fetching results:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-Recommendations:
-1. Monitor the child's attention and activity levels in different settings
-2. Provide structured activities that can help channel energy positively
-3. Consider consultation with a pediatrician if hyperactivity symptoms persist
-4. Continue to encourage the child's strong prosocial behaviors
-5. Maintain open communication about any concerns
-
-Overall, the child demonstrates good social and emotional development with minor areas for attention. Regular monitoring and supportive strategies should be sufficient at this time.`
-      };
-      setResultData(mockResultData);
-      setLoading(false);
-    }, 1000);
+    fetchData();
   }, [id]);
 
   const getScoreColor = (level) => {
@@ -90,7 +87,7 @@ Overall, the child demonstrates good social and emotional development with minor
         </div>
 
         <div className="results-content">
-          {/* Child Information Card */}
+          {/* Info Card */}
           <div className="info-card">
             <h2>Assessment Information</h2>
             <div className="info-grid">
@@ -123,15 +120,15 @@ Overall, the child demonstrates good social and emotional development with minor
 
           {/* Scores Card */}
           <div className="scores-card">
-            <h2>Assessment Scores</h2>
+            <h2>Your Assessment Scores</h2>
             <div className="scores-grid">
               {Object.entries(resultData.scores).map(([category, data]) => (
                 <div key={category} className="score-item">
                   <div className="score-header">
                     <span className="score-category">
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
-                      {category === 'peerProblems' && ' Problems'}
-                      {category === 'prosocial' && ' Behavior'}
+                      {category === 'peerProblems' ? 'Peer Problems' :
+                       category === 'prosocial' ? 'Prosocial Behavior' :
+                       category.charAt(0).toUpperCase() + category.slice(1)}
                     </span>
                     <span 
                       className="score-level"
@@ -161,7 +158,7 @@ Overall, the child demonstrates good social and emotional development with minor
           <div className="review-card">
             <h2>Psychologist Review & Recommendations</h2>
             <div className="review-content">
-              {resultData.psychologistReview.split('\n\n').map((paragraph, index) => (
+              {resultData.psychologistReview.split('\n').map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>
               ))}
             </div>

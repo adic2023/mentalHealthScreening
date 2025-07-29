@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from typing import Dict, List, Optional
 from db.mongo_handler import (
     mark_test_submitted, check_all_submitted, generate_score, 
-    create_review_if_ready, get_child_tests_summary, get_test_results_for_user
+    create_review_if_ready, get_child_tests_summary, get_test_results_for_user,
+    upsert_review_and_generate_summary
 )
 
 router = APIRouter()
@@ -38,7 +39,8 @@ def submit_test(req: SubmitTestRequest):
 
         # Step 3: Check if all parties (child, parent, teacher) have submitted
         # If so, create the review document
-        review_created = create_review_if_ready(req.test_id)
+        review_created = upsert_review_and_generate_summary(req.test_id)
+
         
         if review_created:
             print(f"Review document created for test {req.test_id}")

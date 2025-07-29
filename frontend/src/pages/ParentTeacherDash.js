@@ -1,3 +1,4 @@
+// ParentTeacherDash.js
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
@@ -26,36 +27,50 @@ function ParentTeacherDash() {
       return;
     }
 
-    // Fixed endpoint - using /test/summary instead of /review/summary
     fetch(`http://localhost:8000/test/summary?email=${email}&role=${role}`)
       .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         return res.json();
       })
-      .then(data => {
-        console.log("Dashboard data:", data);
-        
+      .then(async data => {
         if (data.status === "not_started") {
           setIsFirstTime(true);
           setUserTests([]);
         } else {
           setIsFirstTime(false);
-          
-          // Transform the tests array for display
-          const transformedTests = data.tests.map(test => ({
-            id: test.test_id,
-            childId: test.child_id,
-            childName: test.child_name || "Unknown",
-            date: test.date ? new Date(test.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            testType: test.test_type || 'SDQ',
-            status: test.status,
-            takenBy: test.taken_by || role.charAt(0).toUpperCase() + role.slice(1)
-          }));
-          
-          setUserTests(transformedTests);
+
+          const enrichedTests = await Promise.all(
+            data.tests.map(async (test) => {
+              try {
+                const res = await fetch(`http://localhost:8000/child/${test.child_id}`);
+                const child = await res.json();
+                return {
+                  ...test,
+                  childName: child.name || 'Unknown',
+                  code: child.code || 'N/A',
+                  date: test.date
+                    ? new Date(test.date).toISOString().split('T')[0]
+                    : new Date().toISOString().split('T')[0],
+                  testType: test.test_type || 'SDQ',
+                };
+              } catch (err) {
+                console.error('Error fetching child info for test:', test.test_id);
+                return {
+                  ...test,
+                  childName: 'Unknown',
+                  code: 'N/A',
+                  date: test.date
+                    ? new Date(test.date).toISOString().split('T')[0]
+                    : new Date().toISOString().split('T')[0],
+                  testType: test.test_type || 'SDQ',
+                };
+              }
+            })
+          );
+
+          setUserTests(enrichedTests);
         }
+
         setLoading(false);
       })
       .catch(err => {
@@ -65,47 +80,15 @@ function ParentTeacherDash() {
       });
   }, []);
 
-  const handleTakeNewTest = () => {
-    navigate('/ScreeningTest');
-  };
+  const handleTakeNewTest = () => navigate('/ChildRegistration');
 
   const handleViewResults = (childId, status) => {
     if (status === "Review Completed") {
-      // Fixed endpoint - using /test/results instead of /results
       const role = localStorage.getItem('userRole');
       const email = localStorage.getItem('userEmail');
       navigate(`/test-results/${childId}?email=${email}&role=${role}`);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="dashboard-container">
-        <Header showSignup={false} />
-        <div className="dashboard-body">
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-            <div>Loading dashboard...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="dashboard-container">
-        <Header showSignup={false} />
-        <div className="dashboard-body">
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-            <div style={{ color: 'red', textAlign: 'center' }}>
-              <p>{error}</p>
-              <button onClick={() => window.location.reload()}>Retry</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -136,7 +119,9 @@ function ParentTeacherDash() {
               </button>
             </MenuItem>
             <SubMenu label="View Test History" />
-            <MenuItem><a href="https://www.sdqinfo.org/a0.html">SDQ Information</a></MenuItem>
+            <MenuItem component={<a href="https://www.sdqinfo.org/a0.html" target="_blank" rel="noopener noreferrer" />}>
+              SDQ Information
+            </MenuItem>
             <MenuItem>Contact Support</MenuItem>
           </Menu>
         </Sidebar>
@@ -155,13 +140,6 @@ function ParentTeacherDash() {
                     <li>Results reviewed by qualified psychologists</li>
                     <li>Detailed feedback and recommendations provided</li>
                   </ul>
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-                    <h4>How it works:</h4>
-                    <p><strong>Step 1:</strong> Enter the child's sharing code (provided by the child/guardian)</p>
-                    <p><strong>Step 2:</strong> Take the assessment about the child's behavior</p>
-                    <p><strong>Step 3:</strong> Wait for all parties (child, parent, teacher) to complete</p>
-                    <p><strong>Step 4:</strong> Get professional review and recommendations</p>
-                  </div>
                 </div>
                 <button className="take-new-test-btn" onClick={handleTakeNewTest}>
                   Take New Test
@@ -172,35 +150,28 @@ function ParentTeacherDash() {
             <>
               <h2>Your Test History</h2>
               <h4>({indexOfFirstItem + 1}–{Math.min(indexOfLastItem, userTests.length)} of {userTests.length})</h4>
-
               <div className="review-list">
                 {currentItems.map((test) => (
-                  <div className="pending-card" key={test.id}>
+                  <div className="pending-card" key={test.test_id}>
                     <div className="pending-card-header">
                       <h3>{test.childName}</h3>
-                      <span className={`pending-status ${test.status === 'Review Completed' ? 'completed' : 
-                        test.status === 'Review Pending' ? 'pending' : ''}`}>
+                      <span className={`pending-status ${test.status === 'Review Completed' ? 'completed' : test.status === 'Review Pending' ? 'pending' : ''}`}>
                         {test.status}
                       </span>
                     </div>
                     <p>Date: {test.date}</p>
                     <p>Type: {test.testType}</p>
-                    <p>Taken by: {test.takenBy}</p>
-                    <p>Child ID: {test.childId}</p>
-
+                    <p><strong>Sharing Code:</strong> {test.code}</p>
                     {test.status === 'Review Completed' ? (
                       <button
                         className="review-btn completed"
-                        onClick={() => handleViewResults(test.childId, test.status)}
+                        onClick={() => handleViewResults(test.child_id, test.status)}
                       >
                         View Results
                       </button>
                     ) : (
                       <button className="review-btn pending" disabled>
-                        {test.status === 'In Progress' ? 'Test In Progress' : 
-                         test.status === 'Review Pending' ? 'Awaiting Review' :
-                         test.status === 'Submitted - Waiting for Others' ? 'Waiting for Others' : 
-                         'Pending'}
+                        {test.status === 'In Progress' ? 'Test In Progress' : test.status === 'Review Pending' ? 'Awaiting Review' : test.status === 'Submitted - Waiting for Others' ? 'Waiting for Others' : 'Pending'}
                       </button>
                     )}
                   </div>

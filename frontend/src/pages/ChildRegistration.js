@@ -1,3 +1,4 @@
+// ChildRegistration.js - Fixed user role logic
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
@@ -24,53 +25,49 @@ function ChildRegistration() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
-
+  
     try {
       const res = await fetch('http://localhost:8000/child/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-        name,
-        age: parseInt(age),
-        gender,
-        first_time: isFirstTime,
-        code: isFirstTime ? null : code,
-        email: localStorage.getItem('userEmail') // <-- add this
+          name,
+          age: parseInt(age),
+          gender,
+          first_time: isFirstTime,
+          code: isFirstTime ? null : code,
+          email: localStorage.getItem('userEmail')
         })
       });
-
+  
       const data = await res.json();
-
+  
       if (!res.ok) {
         alert(data.detail || 'Registration failed');
         return;
       }
-
+  
       setChildData(data);
       localStorage.setItem('childId', data.child_id);
       localStorage.setItem('childName', data.name);
       localStorage.setItem('childAge', data.age.toString());
-
-      if (userRole === 'child') {
-        if (isFirstTime) {
-          setRegistrationComplete(true); // show sharing code page
-        } else {
-          // Returning child: skip code page, go directly based on age
+  
+      if (isFirstTime) {
+        setRegistrationComplete(true); // Always show sharing code page first
+      } else {
+        // Fixed logic: Check user role first, then age only for children
+        if (userRole === 'child') {
           if (data.age < 11) {
             navigate('/ChildDashboard');
           } else {
             navigate('/Test');
           }
-        }
-      } else {
-        // For parent or teacher
-        if (isFirstTime) {
-          setRegistrationComplete(true); // show code + next steps
         } else {
+          // Parent or teacher - always go to Test regardless of child's age
           navigate('/Test');
         }
       }
-            
+  
     } catch (err) {
       console.error(err);
       alert('Network error');
@@ -78,17 +75,24 @@ function ChildRegistration() {
       setLoading(false);
     }
   };
-
+  
   const handleStartTest = () => {
-    const age = childData?.age;
-    if (age < 11) {
-      navigate('/ChildDashboard');
+    if (!childData || !userRole) return;
+  
+    // Fixed logic: Check user role first, then age only for children
+    if (userRole === 'child') {
+      if (childData.age < 11) {
+        navigate('/ChildDashboard');
+      } else {
+        navigate('/Test');
+      }
     } else {
+      // Parent or teacher - always go to Test regardless of child's age
       navigate('/Test');
     }
   };
+    
   
-
   if (registrationComplete && childData) {
     return (
       <div className="child-registration-container">
@@ -110,7 +114,7 @@ function ChildRegistration() {
                 <li>You will take an assessment about yourself</li>
                 <li>Your parent and teacher will use the code <strong>{childData.code}</strong> to take their assessments</li>
                 <li>All responses will be reviewed by a psychologist</li>
-                <li>You’ll receive feedback and guidance</li>
+                <li>You'll receive feedback and guidance</li>
               </ol>
             </div>
             <button className="start-test-btn" onClick={handleStartTest}>Start My Assessment</button>

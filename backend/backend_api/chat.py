@@ -126,11 +126,10 @@ async def respond(req: RespondRequest):
                 "respondent_type": req.respondent_type
             }
 
-        # ✅ End of test check
+        # ✅ End of test check - FIXED: Don't mark as submitted here
         if index is None or index >= len(questions):
-            mark_test_submitted(req.test_id)
             return {
-                "message": "Thank you for completing the test!",
+                "message": "Thank you for completing all questions! You can now submit your test responses.",
                 "question_index": None,
                 "completed": True,
                 "test_id": req.test_id
@@ -158,9 +157,9 @@ async def respond(req: RespondRequest):
 
             next_index = index + 1
             if next_index >= len(questions):
-                mark_test_submitted(req.test_id)
+                # FIXED: Don't mark as submitted, just return completion message
                 return {
-                    "message": "Perfect! That was the last question. Test completed.",
+                    "message": "Perfect! That was the last question. All questions completed! You can now submit your test responses.",
                     "question_index": None,
                     "completed": True
                 }
@@ -196,9 +195,9 @@ async def respond(req: RespondRequest):
 
             next_index = index + 1
             if next_index >= len(questions):
-                mark_test_submitted(req.test_id)
+                # FIXED: Don't mark as submitted, just return completion message
                 return {
-                    "message": "Thanks! That was the last question. Test completed.",
+                    "message": "Thanks! That was the last question. All questions completed! You can now submit your test responses.",
                     "question_index": None,
                     "completed": True
                 }
@@ -230,7 +229,7 @@ async def respond(req: RespondRequest):
 
         # Fallback
         return {
-            "message": "Sorry, I didn’t understand that. Could you say it again?",
+            "message": "Sorry, I didn't understand that. Could you say it again?",
             "question_index": index
         }
 
@@ -266,9 +265,9 @@ def confirm_option(req: ConfirmOptionRequest):
 
         next_index = req.question_index + 1
         if next_index >= len(questions):
-            mark_test_submitted(req.test_id)
+            # FIXED: Don't mark as submitted here either
             return {
-                "message": "Thanks! That was the final question. Test completed.",
+                "message": "Thanks! That was the final question. All questions completed! You can now submit your test responses.",
                 "question_index": None,
                 "completed": True,
                 "test_id": req.test_id,

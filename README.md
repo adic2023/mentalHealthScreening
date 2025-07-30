@@ -402,7 +402,6 @@ tests (1) ←→ (many) reviews
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open Pull Request
 
-
 ## 🆘 Support
 
 For support and questions:

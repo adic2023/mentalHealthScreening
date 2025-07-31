@@ -1,9 +1,7 @@
 # SDQ Assessment Platform
 
 A comprehensive behavioral assessment platform implementing the Strengths and Difficulties Questionnaire (SDQ) with AI-powered conversational testing and professional review capabilities.
-
 ## 🎯 Project Overview
-
 This platform allows children (11-17), parents, teachers, and psychologists to participate in a multi-perspective behavioral assessment process. The system uses conversational AI to guide users through the SDQ questionnaire, analyzes responses from multiple perspectives, and provides professional psychological reviews.
 
 ### Key Features

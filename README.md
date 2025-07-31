@@ -1,7 +1,9 @@
 # SDQ Assessment Platform
 
 A comprehensive behavioral assessment platform implementing the Strengths and Difficulties Questionnaire (SDQ) with AI-powered conversational testing and professional review capabilities.
+
 ## 🎯 Project Overview
+
 This platform allows children (11-17), parents, teachers, and psychologists to participate in a multi-perspective behavioral assessment process. The system uses conversational AI to guide users through the SDQ questionnaire, analyzes responses from multiple perspectives, and provides professional psychological reviews.
 
 ### Key Features
@@ -144,6 +146,7 @@ The application will automatically create the required collections:
 - `children` - Child registration information
 - `tests` - Assessment responses and scores
 - `reviews` - Professional review documents
+- `vector_responses` - Embedded response vectors
 
 ## 🔄 Application Flow
 
@@ -313,83 +316,47 @@ The system classifies user intents to provide appropriate responses:
 
 ## 📊 Data Models
 
-### Database Schema
-
-The platform uses MongoDB with the following collections and relationships:
+### Key Collections
 
 ```javascript
-// users - Authentication and user management
+// users
 {
-  _id: ObjectId, // Primary key
   email: String,
   password_hash: String,
-  role: String, // "parent", "teacher", "psychologist"
+  role: String, // "child", "parent", "teacher", "psychologist"
   created_at: Date
 }
 
-// children - Child registration and profile data
+// children  
 {
-  _id: ObjectId, // Primary key
+  child_id: String,
   name: String,
   age: Number,
-  gender: String, // "female", "male"
-  code: String, // Unique sharing code like "E9D09B17"
-  email: String,
-  registered_on: Date,
-  parent_id: ObjectId // Reference to users._id
+  gender: String,
+  code: String, // sharing code
+  email: String
 }
 
-// tests - Assessment responses and scoring
+// tests
 {
-  _id: ObjectId, // Primary key
-  test_id: String, // Unique test identifier
-  age: Number,
-  child_name: String,
-  child_id: ObjectId, // Reference to children._id
-  respondent_type: String, // "parent", "teacher"
-  email: String,
-  submitted: Boolean,
-  confirm_options: Array, // 25 SDQ responses
-  vector_responses: Array, // 31 conversation embeddings
-  scores: Object, // Calculated SDQ scores
-  created_at: Date,
-  parent_id: ObjectId // Reference to users._id
+  test_id: String,
+  child_id: String,
+  respondent_type: String,
+  confirm_options: Array, // SDQ responses
+  vector_responses: Array, // embeddings
+  scores: Object, // calculated scores
+  submitted: Boolean
 }
 
-// reviews - Professional psychological reviews
+// reviews
 {
-  _id: ObjectId, // Primary key
-  child_id: ObjectId, // Reference to children._id
-  child_test_id: String,
-  parent_test_id: String,
-  teacher_test_id: String,
-  ai_generated_summary: String, // AI-generated assessment summary
-  psychologist_review: String, // Professional review text
-  scores: Object, // Consolidated scores from all perspectives
+  child_id: String,
+  ai_generated_summary: String,
+  psychologist_review: String,
   status: String, // "pending", "reviewed"
-  reviewed_by: String, // Psychologist identifier
-  submitted_at: Date,
-  reviewed_at: Date,
-  test_id: ObjectId // Reference to tests._id
+  scores: Object // all perspective scores
 }
 ```
-
-### Database Relationships
-
-```
-users (1) ←→ (many) children
-children (1) ←→ (many) tests
-users (1) ←→ (many) tests
-children (1) ←→ (many) reviews
-tests (1) ←→ (many) reviews
-```
-
-### Collection Sizes & Indexing
-
-- **users**: Indexed on `email` (unique)
-- **children**: Indexed on `code` (unique), `parent_id`
-- **tests**: Indexed on `test_id` (unique), `child_id`, `email`
-- **reviews**: Indexed on `child_id`, `status`
 
 ## 🤝 Contributing
 
@@ -398,6 +365,10 @@ tests (1) ←→ (many) reviews
 3. Commit changes (`git commit -m 'Add AmazingFeature'`)
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🆘 Support
 

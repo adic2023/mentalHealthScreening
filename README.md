@@ -146,7 +146,6 @@ The application will automatically create the required collections:
 - `children` - Child registration information
 - `tests` - Assessment responses and scores
 - `reviews` - Professional review documents
-- `vector_responses` - Embedded response vectors
 
 ## 🔄 Application Flow
 
